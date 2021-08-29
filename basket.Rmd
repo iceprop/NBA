@@ -1,0 +1,479 @@
+---
+title: "Basketball"
+subtitle: "Relazione tra regular season e playoff in NBA"
+author: "Propedo Demien"
+date: "3/8/2021"
+output:
+  ioslides_presentation:
+    incremental: yes
+    css: style.css
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE, eval=TRUE, echo=FALSE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggthemes)
+library(rmarkdown)
+library(patchwork)
+```
+
+## Introduzione
+
+L'NBA è il campionato di pallacanestro più importante al mondo. E' diviso in 2 parti:
+
+- Regular season, le 30 squadre si affrontano in 82 partite per qualificarsi ai playoff
+
+- Playoff, le 8 migliori squadre della costa est e le 8 migliori squadre della costa ovest si affrontano in una serie di turni fino a decretare una squadra campione per conference. Le 2 squadre si affronteranno infine per il titolo
+
+## Primo caso di studio
+
+Analizzeremo la differenza tra regular season e playoff in termini di percentuale realizzativa
+
+- FGM = tiri realizzati
+
+- FGA = tiri tentati
+
+- fgP = percentuale realizzativa
+
+##
+
+```{r eval=TRUE, echo=FALSE}
+playersStats = read_csv("players_stats_by_season_full_details.csv")
+
+nba = playersStats %>% 
+  filter(League == "NBA")
+
+min_per_game = playersStats %>% 
+  mutate(minpg = (MIN/GP))
+
+fgPercentage = min_per_game %>%
+  mutate(playersStats, fgP = (FGM / FGA) * 100)
+
+players_rs = fgPercentage %>%
+  group_by(Player) %>% 
+  filter(League == "NBA", Stage == "Regular_Season") %>% 
+  select(League, Season, Stage, Player, minpg, FGM, FGA, fgP)
+
+players_rs = na.omit(players_rs)
+
+players_po = fgPercentage %>%
+  group_by(Player) %>% 
+  filter(League == "NBA", Stage == "Playoffs") %>% 
+  select(League, Season, Stage, Player, minpg, FGM, FGA, fgP)
+
+
+rs = ggplot(data = players_rs) +
+       geom_jitter(aes(x = fgP, y = Season, colour = Season)) +
+       geom_boxplot(aes(x = fgP, y = Season, colour = Season), col = "black", fill = "transparent") +
+       labs(title = "Field Goal Percentage in RS",
+            x = "fgP") +
+       theme(legend.position = "none",
+             plot.title = element_text(hjust = 0.5)) +
+       scale_x_continuous(limits = c(0, 80))
+
+po = ggplot(data = players_po) +
+       geom_jitter(aes(x = fgP, y = Season, colour = Season)) +
+       geom_boxplot(aes(x = fgP, y = Season, colour = Season), col = "black", fill = "transparent") +
+       labs(title = "Field Goal Percentage in PO",
+            x = "fgP") +
+       theme(legend.position = "none",
+             axis.title.y = element_blank(),
+             axis.text.y = element_blank(),
+             axis.ticks.y = element_blank(),
+             plot.title = element_text(hjust = 0.5)) +
+       scale_x_continuous(limits = c(0, 80))
+
+rs + po
+```
+
+## Conclusioni
+
+- In regular season c'è una maggiore concentrazione dei giocatori tra il 35% e il 60%
+
+- Nei playoff i dati sono più distribuiti e aumentano le anomalie
+
+## Secondo caso di studio
+
+Per capire se la percentuale realizzative è affetta dalle difese, andiamo ad analizzare le statistiche puramente difensive
+
+- DRB = rimbalzi difensivi
+
+- STL = palle recuperate
+
+- BLK = stoppate
+
+##
+
+```{r eval=TRUE, echo=FALSE}
+drb_per_game = min_per_game %>% 
+  mutate(drbpg = (DRB/GP))
+
+defense_rs_drb = drb_per_game %>% 
+  group_by(Player) %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Regular_Season", Season > 2000) %>%
+  select(League, Season, Stage, Player, GP, minpg, DRB, drbpg, STL, BLK)
+
+defense_po_drb = drb_per_game %>% 
+  group_by(Player) %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Playoffs", Season > 2000) %>%
+  select(League, Season, Stage, Player, GP, minpg, DRB, drbpg, STL, BLK)
+
+rs = ggplot(data = defense_rs_drb) +
+       geom_boxplot(aes(x = drbpg, y = Season, col = Season)) +
+       #geom_jitter(aes(x = drbpg, y = Season, col = Season)) +
+       labs(title = "Defensive Rebounds rs",
+            x = "drpg") +
+       theme(legend.position="none",
+             plot.title = element_text(hjust = 0.5)) +
+       scale_x_continuous(breaks = c(0, 3, 6, 9, 12), limits = c(0, 14))
+
+po = ggplot(data = defense_po_drb) +
+       geom_boxplot(aes(x = drbpg, y = Season, col = Season)) +
+       #geom_jitter(aes(x = drbpg, y = Season, col = Season)) +
+       labs(title = "Defensive Rebounds po",
+            x = "drbpg",
+            caption = "defensive rebounds per game") +
+       theme(legend.position="none",
+             axis.title.y = element_blank(),
+             axis.text.y = element_blank(),
+             axis.ticks.y = element_blank(),
+             plot.title = element_text(hjust = 0.5)) +
+       scale_x_continuous(breaks = c(0, 3, 6, 9, 12), limits = c(0, 14))
+
+rs + po
+```
+
+##
+```{r eval=TRUE, echo=FALSE}
+stl_per_game = min_per_game %>% 
+  mutate(stlpg = (STL/GP))
+
+defense_rs_stl = stl_per_game %>% 
+  group_by(Player) %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Regular_Season") %>%
+  select(League, Season, Stage, Player, GP, minpg, DRB, STL, stlpg, BLK)
+
+defense_po_stl = stl_per_game %>% 
+  group_by(Player) %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Playoffs") %>%
+  filter(stlpg < 3) %>% 
+  select(League, Season, Stage, Player, GP, minpg, DRB, STL, stlpg, BLK)
+
+rs = ggplot(data = defense_rs_stl, aes(x = stlpg, y = Season, col = Season)) +
+       geom_jitter() +
+       geom_violin(col = "black", fill = "transparent") +
+       labs(title = "Steals rs",
+            x = "stlpg") +
+       theme(legend.position = "none",
+             plot.title = element_text(hjust = 0.5)) +
+       scale_x_continuous( limits = c(0, 3))
+    
+po = ggplot(data = defense_po_stl) +
+       geom_jitter(aes(x = stlpg, y = Season, col = Season)) +
+       geom_violin(aes(x = stlpg, y = Season, col = Season), col = "black", fill = "transparent") +
+       labs(title = "Steals po",
+            x = "stlpg",
+            caption = "steals per game") +
+       theme(legend.position = "none",
+             axis.title.y = element_blank(),
+             axis.text.y = element_blank(),
+             axis.ticks.y = element_blank(),
+             plot.title = element_text(hjust = 0.5)) +
+       scale_x_continuous( limits = c(0, 3))
+
+rs + po
+```
+
+##
+```{r eval=TRUE, echo=FALSE}
+blk_per_game = min_per_game %>% 
+  mutate(blkpg = (BLK/GP))
+
+defense_rs_blk = blk_per_game %>% 
+  group_by(Player) %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Regular_Season") %>%
+  select(League, Season, Stage, Player, GP, minpg, DRB, STL, BLK, blkpg)
+
+defense_po_blk = blk_per_game %>% 
+  group_by(Player) %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Playoffs") %>%
+  select(League, Season, Stage, Player, GP, minpg, DRB, STL, BLK, blkpg)
+
+rs =  ggplot(data = defense_rs_blk) +
+        labs(title = "Blocks rs") +
+        geom_jitter(aes(x = blkpg, y = Season, col = Season)) +
+        theme(legend.position = "none", legend.key.size = unit(0.0005, "cm"),
+              plot.title = element_text(hjust = 0.5)) +
+        scale_x_continuous(limits = c(0, 4.5))
+      
+po =  ggplot(data = defense_po_blk) +
+        labs(title = "Blocks po",
+             caption = "blocks per game") +
+        geom_jitter(aes(x = blkpg, y = Season, col = Season)) +
+        theme(legend.position = "none", 
+              legend.key.size = unit(0.0005, "cm"),
+              axis.title.y = element_blank(),
+              axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        scale_x_continuous(limits = c(0, 4.5))
+
+rs + po
+```
+
+## Conclusioni
+
+- I drbpg, le stlpg e i blkpg rispecchiano abbastanza fedelmente ciò che abbiamo osservato nel grafico della fgP. 
+
+- Guardando i grafici ci accorgiamo immediatamente della differenza di distribuzione dei giocatori.
+
+- Nei po vi è un numero maggiore di anomalie.
+
+## Terzo caso di studio
+
+Ora analizzeremo i minuti per partita
+
+##
+
+```{r eval=TRUE, echo=FALSE}
+min_per_game = playersStats %>% 
+  mutate(minpg = (MIN/GP))
+
+fgPercentage = min_per_game %>%
+  mutate(playersStats, fgP = (FGM / FGA) * 100)
+
+drb_per_game = fgPercentage %>% 
+  mutate(drbpg = (DRB/GP))
+
+stl_per_game = drb_per_game %>% 
+  mutate(stlpg = (STL/GP))
+
+blk_per_game = stl_per_game %>% 
+  mutate(blkpg = (BLK/GP))
+
+min_rs = blk_per_game %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Regular_Season") %>%
+  select(Season, GP, MIN, fgP, minpg, DRB, drbpg, STL, stlpg, BLK, blkpg)
+
+min_po = blk_per_game %>% 
+  filter(League == "NBA") %>% 
+  filter(Stage == "Playoffs") %>%
+  select(Season, GP, MIN, fgP, minpg, DRB, drbpg, STL, stlpg, BLK, blkpg)
+
+min_rs = na.omit(min_rs)
+min_po = na.omit(min_po)
+
+rs =  ggplot(data = min_rs) +
+        labs(title = "Minutes rs") +
+        geom_boxplot(aes(x = minpg, y = Season, col = Season)) + 
+        geom_point(aes(x = minpg, y = Season, col = Season)) +
+        theme(legend.position = "none", 
+              legend.key.size = unit(0.0005, "cm"),
+              plot.title = element_text(hjust = 0.5)) +
+        scale_x_continuous(limits = c(0, 45))
+      
+po =  ggplot(data = min_po) +
+        labs(title = "Minutes po",
+             caption = "minutes per game") +
+        geom_boxplot(aes(x = minpg, y = Season, col = Season)) +
+        geom_point(aes(x = minpg, y = Season, col = Season)) + 
+        theme(legend.position = "none",
+              legend.key.size = unit(0.0005, "cm"),
+              axis.title.y = element_blank(),
+              axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        scale_x_continuous(limits = c(0, 45))
+
+rs + po
+```
+
+## Quarto caso di studio
+
+Analizziamo ora le varie statistiche in relazione al tempo di gioco
+
+##
+
+```{r eval=TRUE, echo=FALSE}
+a =   ggplot(data = min_rs, aes(x = fgP, y = minpg)) + 
+        geom_jitter() +
+        geom_smooth() +
+        labs(title = "fgP/minpg") +
+        scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50), limits = c(0, 50)) +
+        scale_x_continuous(limits = c(0, 80)) +
+        theme(plot.title = element_text(hjust = 0.5))
+      
+b =   ggplot(data = min_rs, aes(x = drbpg, y = minpg)) + 
+        geom_jitter() + 
+        geom_smooth() +
+        scale_x_continuous(breaks = c(0, 3, 6, 9, 12), limits = c(0, 14)) +
+        scale_y_continuous(limits = c(0, 50), breaks = c(0, 10, 20, 30, 40, 50)) +
+        theme(axis.title.y = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        labs(title = "drbpg/minpg")
+      
+c =   ggplot(data = min_rs, aes(x = stlpg, y = minpg)) + 
+        geom_jitter() + 
+        geom_smooth() +
+        scale_x_continuous( limits = c(0, 3)) +
+        scale_y_continuous(limits = c(0, 50)) +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        labs(title = "stlpg/minpg")
+      
+d =   ggplot(data = min_rs, aes(x = blkpg, y = minpg)) + 
+        geom_jitter() +
+        geom_smooth() +
+        scale_x_continuous( limits = c(0, 4.5)) +
+        scale_y_continuous(limits = c(0, 50)) +
+        theme(axis.title.y = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        labs(title = "blkpg/minpg")
+
+rs = a + b + c + d
+rs + 
+  plot_annotation(
+    title = "Regular Season") &
+  theme(plot.title = element_text(hjust = 0.5, colour = "blue"))      
+```
+
+##
+```{r eval=TRUE, echo=FALSE}
+I =   ggplot(data = min_po, aes(x = fgP, y = minpg)) + 
+        geom_jitter() +
+        geom_smooth() +
+        scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50), limits = c(0, 50)) +
+        scale_x_continuous(limits = c(0, 80)) +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        labs(title = "fgP/minpg")
+      
+II =  ggplot(data = min_po, aes(x = drbpg, y = minpg)) + 
+        geom_jitter() + 
+        geom_smooth() +
+        scale_x_continuous(breaks = c(0, 3, 6, 9, 12), limits = c(0, 14)) +
+        scale_y_continuous(limits = c(0, 50), breaks = c(0, 10, 20, 30, 40, 50)) +
+        theme(axis.title.y = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        labs(title = "drbpg/minpg")
+      
+III = ggplot(data = min_po, aes(x = stlpg, y = minpg)) + 
+        geom_jitter() + 
+        geom_smooth() +
+        scale_x_continuous(limits = c(0, 3)) +
+        scale_y_continuous(limits = c(0, 50)) +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        labs(title = "stlpg/minpg")
+      
+IV =  ggplot(data = min_po, aes(x = blkpg, y = minpg)) + 
+        geom_jitter() +
+        geom_smooth() +
+        scale_x_continuous(limits = c(0, 4.5)) +
+        scale_y_continuous(limits = c(0, 50)) +
+        theme(axis.title.y = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        labs(title = "blkpg/minpg")
+
+po = I + II + III + IV
+po + 
+  plot_annotation(
+    title = "Playoffs") &
+  theme(plot.title = element_text(hjust = 0.5, colour = "red"))
+```
+
+## Analisi
+
+- In rs, maggiore è il tempo di gioco, più è equilibrata la media realizzativa
+
+- Nei po c'è maggiore distribuzione
+
+- Il numero di stoppate aumenta nei po rispetto alla rs
+
+- Rimbalzi difensivi e palle recuperate rimangono abbastanza invariati 
+
+##
+```{r eval=TRUE, echo=FALSE}
+end = blk_per_game %>% 
+  filter(League == "NBA")
+
+final = end %>% 
+  group_by(Season, Stage) %>% 
+  summarise(count = n(), min = mean(minpg), fgp = mean(fgP, na.rm = TRUE), drb = mean(drbpg), stl = mean(stlpg), blk = mean(blkpg)) %>% 
+  select(Season, Stage, min, fgp, drb, stl, blk)
+  
+
+ggplot(final, aes(x = Season, y = min, fill = factor(Stage))) +
+  geom_bar(stat = "identity", width = .8, position = "dodge") +
+  labs(title = "Minutes",
+       caption = "Minutes percentage per season in NBA") +
+  scale_fill_discrete(name = "Stage",
+                      labels = c("Regular Season", "Playoffs")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+
+ggplot(final, aes(x = Season, y = fgp, fill = factor(Stage))) +
+  geom_bar(stat = "identity", width = .8, position = "dodge") +
+  labs(title = "Field Goals",
+       caption = "Field goals percentage per season in NBA") +
+  scale_fill_discrete(name = "Stage",
+                      labels = c("Regular Season", "Playoffs")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+
+ggplot(final, aes(x = Season, y = drb, fill = factor(Stage))) +
+  geom_bar(stat = "identity", width = .8, position = "dodge") +
+  labs(title = "Defensive Rebounds",
+       caption = "Defensive rebounds percentage per season in NBA") +
+  scale_fill_discrete(name = "Stage",
+                      labels = c("Regular Season", "Playoffs")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+
+ggplot(final, aes(x = Season, y = stl, fill = factor(Stage))) +
+  geom_bar(stat = "identity", width = .8, position = "dodge") +
+  labs(title = "Steals",
+       caption = "Steals percentage per season in NBA") +
+  scale_fill_discrete(name = "Stage",
+                      labels = c("Regular Season", "Playoffs")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+
+ggplot(final, aes(x = Season, y = blk, fill = factor(Stage), label = blk)) +
+  geom_bar(stat ='identity', width = .8, position ="dodge") +
+  labs(title = "Blocks",
+       caption = "Blocks percentage per season in NBA") +
+  scale_fill_discrete(name = "Stage",
+                      labels = c("Regular Season", "Playoffs")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+```
+
+## Considerazioni finali
+
+- Nei po la percentuale realizzativa è maggiore rispetto alla rs.
+
+- Nei po la media delle palle recuperate è maggiore rispetto alla rs
+
+- Rimbalzi difensivi e stoppate sono abbastanza equilibrati tra rs e po
+
+- In conclusione, ho iniziato questo studio con la convinzione che nei po le difese fossero migliori rispetto alla rs e che gli attacchi facessero più fatica a finalizzare le azioni ma le analisi svolte hanno mostrato l'esatto opposto. Infatti da questo studio si è capito come le difese siano si più attente nei po (come si nota dal dato delle pr), ma probabilmente lo sono anche gli attacchi giungendo così al pensiero che in nba vi sia un grande equilibrio a livello statistico tra rs e po
+
